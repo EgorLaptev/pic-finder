@@ -4,21 +4,10 @@ import time
 import requests
 from datetime import datetime
 from bs4 import BeautifulSoup
+from validator import check_background
 
 
 def load_names(file_path):
-    """Load product names from a file in either text or JSON format."""
-    file_extension = os.path.splitext(file_path)[1].lower()
-    if file_extension == '.json':
-        with open(file_path, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-            return data.get("data", [])
-    else:
-        with open(file_path, 'r', encoding='utf-8') as f:
-            return [name.strip() for name in f]
-
-
-def load_names_json(file_path):
     """Load product names from a file in either text or JSON format."""
     file_extension = os.path.splitext(file_path)[1].lower()
     if file_extension == '.json':
@@ -36,7 +25,14 @@ def fetch_image_link(name):
     content = requests.get(url).content
     soup = BeautifulSoup(content, 'lxml')
     images = soup.findAll('img')
-    return images[1].get('src') if len(images) > 1 else ""
+
+    # validate images
+    for image in images:
+        link = image.get('src')
+        if check_background(link, 0.1, 0.9):
+            return link
+
+    return ""
 
 
 def save_links(links, directory, output_format="txt"):
@@ -83,4 +79,4 @@ def main(input_file, output_directory, output_format="txt"):
 
 
 if __name__ == "__main__":
-    main('data.json', 'data', 'txt')
+    main('data.txt', 'data', 'txt')
