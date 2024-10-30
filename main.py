@@ -2,6 +2,7 @@ import os
 import json
 import time
 import requests
+from config import *
 from datetime import datetime
 from bs4 import BeautifulSoup
 from validator import check_background
@@ -19,20 +20,25 @@ def load_names(file_path):
             return [name.strip() for name in f]
 
 
-def fetch_image_link(name):
+def fetch_image_link(query):
     """Fetch the first image link from Google Images search for a given product name."""
-    url = f'https://www.google.com/search?q={name}&tbm=isch'
+    url = f'https://www.google.com/search?q={query}&tbm=isch'
     content = requests.get(url).content
     soup = BeautifulSoup(content, 'lxml')
     images = soup.findAll('img')
 
-    # validate images
-    for image in images:
-        link = image.get('src')
-        if check_background(link, 0.1, 0.9):
-            return link
+    links = []
 
-    return ""
+    saved_count = 0
+
+    # validate images
+    for image in images[1:]:
+        link = image.get('src')
+        if saved_count < LIMIT and check_background(link, BACKGROUND_COLOR, BORDER_RATIO, THRESHOLD):
+            links.append(link)
+            saved_count += 1
+
+    return links
 
 
 def save_links(links, directory, output_format="txt"):
@@ -45,7 +51,7 @@ def save_links(links, directory, output_format="txt"):
             json.dump({"links": links}, f, ensure_ascii=False, indent=4)
     else:
         with open(output_path, 'w', encoding='utf-8') as f:
-            f.write('\n'.join(links))
+            f.write('\n\n'.join(['\n'.join(link) for link in links]))
 
     return output_path
 
@@ -61,12 +67,12 @@ def main(input_file, output_directory, output_format="txt"):
 
     for name in names:
         counter += 1
-        link = fetch_image_link(name)
-        links.append(link)
+        resp = fetch_image_link(name)
+        links.append(resp)
 
-        if link:
+        if len(resp):
             success += 1
-            print(f'[{counter}/{len(names)}] 🟢 {name}: {link}')
+            print(f'[{counter}/{len(names)}] 🟢 {name}:\n{'\n'.join(resp)}')
         else:
             print(f'[{counter}/{len(names)}] 🔴 {name}')
 
@@ -79,4 +85,4 @@ def main(input_file, output_directory, output_format="txt"):
 
 
 if __name__ == "__main__":
-    main('data.txt', 'data', 'txt')
+    main(DATA_FILE_PATH, OUTPUT_DIRECTORY, OUTPUT_FORMAT)
